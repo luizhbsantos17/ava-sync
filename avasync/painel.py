@@ -64,7 +64,7 @@ def coletar():
                     ad = d / (f.stem + "_anexos")
                     if ad.exists():
                         anexos = [{"nome": a.name, "href": _rel(a)} for a in sorted(ad.iterdir()) if a.is_file()]
-                    itens.append({"titulo": f.stem, "md": _ler(f), "href": _rel(f), "anexos": anexos,
+                    itens.append({"titulo": f.stem, "md": _ler(f), "href": _rel(f), "dir": _rel(f.parent), "anexos": anexos,
                                   "tarefa_id": id_por_arquivo.get(f.stem) if sec == "Atividades" else None})
                 # arquivos que nao sao .md (ex.: docx do aluno)
                 for f in sorted(d.iterdir()):
@@ -75,9 +75,12 @@ def coletar():
         md = pasta / "Materiais"
         if md.exists():
             for f in sorted(md.rglob("*")):
+                partes = f.relative_to(md).parts[:-1]
+                if any(x.startswith("_") or x.endswith("_arquivos") for x in partes):
+                    continue  # imagens baixadas para paginas, livros e links (aparecem dentro deles)
                 if f.is_file() and f.name.upper() != "README.MD" and not f.name.endswith(".part"):
                     mats.append({"nome": f.name, "grupo": f.parent.relative_to(md).as_posix() or "Geral",
-                                 "href": _rel(f), "kb": round(f.stat().st_size / 1024),
+                                 "href": _rel(f), "dir": _rel(f.parent), "kb": round(f.stat().st_size / 1024),
                                  "md": _ler(f) if f.suffix.lower() in TEXTO else ""})
         m["materiais"] = mats
         materias.append(m)
@@ -152,7 +155,8 @@ a{color:var(--ac)}.mu{color:var(--mu)}.vazio{color:var(--mu);font-style:italic}
 <script>
 const D=__DADOS__;const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function md(t){if(!t)return"";let h=esc(t);
+function md(t,b){if(!t)return"";let h=esc(t);
+ h=h.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,(m,a,s)=>'<img alt="'+a+'" src="'+(/^(https?:|data:|\/)/.test(s)||!b?s:b+"/"+s)+'" loading="lazy" style="max-width:100%">');
  h=h.replace(/```([\s\S]*?)```/g,(m,c)=>"<pre>"+c+"</pre>");
  h=h.replace(/^### (.*)$/gm,"<h3>$1</h3>").replace(/^## (.*)$/gm,"<h2>$1</h2>").replace(/^# (.*)$/gm,"<h1>$1</h1>");
  h=h.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>");
@@ -221,7 +225,7 @@ function nav(){let h='<button data-v="prazos">Próximos prazos</button><button d
 function prazos(lista){if(!lista.length)return'<p class="vazio">Nenhum prazo encontrado.</p>';
  return'<table><tr><th>Quando</th><th></th><th>Matéria</th><th>Item</th></tr>'+lista.map(p=>'<tr><td>'+fdata(p.ts)+'</td><td>'+badge(p.ts,p.situacao)+'</td><td>'+esc(p.materia)+'</td><td>'+esc(p.tipo)+': <b>'+esc(p.nome)+'</b>'+(p.situacao?'<br><span class="mu">'+esc(p.situacao)+'</span>':'')+'</td></tr>').join("")+'</table>';}
 function item(it){if(it.arquivo)return'<div class="card"><a href="'+it.href+'">'+esc(it.titulo)+'</a></div>';
- return'<details class="card"><summary>'+esc(it.titulo)+'</summary><div class="md">'+md(it.md)+'</div>'+(it.anexos.length?'<p><b>Anexos:</b> '+it.anexos.map(a=>'<a href="'+a.href+'">'+esc(a.nome)+'</a>').join(" · ")+'</p>':'')+'<p class="mu"><a href="'+it.href+'">abrir arquivo</a>'+(it.tarefa_id?(S?' · <button class="btn" onclick="abrirEnvio('+it.tarefa_id+')">Enviar atividade</button>':' · <span title="rode: python -m avasync servidor">para enviar, abra o painel pelo servidor local</span>'):'')+'</p></details>';}
+ return'<details class="card"><summary>'+esc(it.titulo)+'</summary><div class="md">'+md(it.md,it.dir)+'</div>'+(it.anexos.length?'<p><b>Anexos:</b> '+it.anexos.map(a=>'<a href="'+a.href+'">'+esc(a.nome)+'</a>').join(" · ")+'</p>':'')+'<p class="mu"><a href="'+it.href+'">abrir arquivo</a>'+(it.tarefa_id?(S?' · <button class="btn" onclick="abrirEnvio('+it.tarefa_id+')">Enviar atividade</button>':' · <span title="rode: python -m avasync servidor">para enviar, abra o painel pelo servidor local</span>'):'')+'</p></details>';}
 function materia(m){const tabs=["Atividades","Provas","Guias","Anuncios","Materiais","Conteudo"];
  const nomes={Anuncios:"Avisos",Conteudo:"Conteúdo do AVA",Guias:"Guias da IA"};
  let h='<h2 style="margin:0">'+esc(m.nome)+'</h2><p class="mu"><a href="'+m.pasta+'">abrir pasta</a></p><div class="tabs">'+tabs.map(t=>'<button data-t="'+t+'" class="'+(t===aba?"on":"")+'">'+(nomes[t]||t)+'</button>').join("")+'</div>';
@@ -229,11 +233,11 @@ function materia(m){const tabs=["Atividades","Provas","Guias","Anuncios","Materi
  if(aba==="Materiais"){if(!m.materiais.length)h+='<p class="vazio">Nenhum material baixado ainda.</p>';
   const g={};m.materiais.forEach(x=>(g[x.grupo]=g[x.grupo]||[]).push(x));
   for(const k in g)h+='<div class="card"><b>'+esc(k)+'</b><ul>'+g[k].map(x=>'<li><a href="'+x.href+'">'+esc(x.nome)+'</a> <span class="mu">'+x.kb+' KB</span></li>').join("")+'</ul></div>';}
- else if(aba==="Conteudo")h+=m.conteudo?'<div class="card md">'+md(m.conteudo)+'</div>':'<p class="vazio">Ainda não sincronizado.</p>';
+ else if(aba==="Conteudo")h+=m.conteudo?'<div class="card md">'+md(m.conteudo,m.pasta)+'</div>':'<p class="vazio">Ainda não sincronizado.</p>';
  else{const l=m.secoes[aba]||[];h+=l.length?l.map(item).join(""):'<p class="vazio">Nada aqui ainda.</p>';}
  return h;}
 function busca(q){q=q.toLowerCase();let r=[];D.materias.forEach(m=>{for(const s in m.secoes)m.secoes[s].forEach(it=>{if((it.titulo+" "+it.md).toLowerCase().includes(q))r.push([m.nome,s,it]);});
- m.materiais.forEach(x=>{if((x.nome+" "+x.md).toLowerCase().includes(q))r.push([m.nome,"Materiais",{titulo:x.nome,md:x.md,href:x.href,anexos:[],arquivo:!x.md}]);});});
+ m.materiais.forEach(x=>{if((x.nome+" "+x.md).toLowerCase().includes(q))r.push([m.nome,"Materiais",{titulo:x.nome,md:x.md,href:x.href,dir:x.dir,anexos:[],arquivo:!x.md}]);});});
  return'<h2>Busca: '+esc(q)+'</h2>'+(r.length?r.map(([n,s,it])=>'<div class="mu">'+esc(n)+' › '+esc(s)+'</div>'+item(it)).join(""):'<p class="vazio">Nada encontrado.</p>');}
 function render(){nav();const q=$("#q").value.trim();let h;
  if(q)h=busca(q);

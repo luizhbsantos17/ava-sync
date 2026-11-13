@@ -4,6 +4,7 @@ import json
 import sys
 import time
 
+from .midia import Midia
 from .moodle import Moodle, pegar_token
 from .util import data, data_iso, escrever_se_mudou, log, nome_seguro, para_md, tz
 
@@ -26,6 +27,7 @@ def filtrar_cursos(cfg, cursos, agora):
 
 def sync(cfg):
     m = Moodle(cfg.site, pegar_token(cfg), cfg.max_download_mb)
+    midia = Midia(m, cfg)
     STATE_FILE = cfg.interno / "estado.json"
     REL, DISC, CAL, SITE = cfg.rel, cfg.disc, cfg.cal, cfg.site
     agora = int(time.time())
@@ -71,10 +73,11 @@ def sync(cfg):
         # 1) estrutura da materia: textos das secoes + arquivos
         conteudo = m.tentar("core_course_get_contents", [], courseid=cid) or []
         md = [f"# {c.get('fullname')}\n", f"Link: {SITE}/course/view.php?id={cid}\n"]
+        img_curso = pasta / "Materiais" / "_imagens"
         for sec in conteudo:
             md.append(f"\n## {sec.get('name') or 'Secao'}\n")
             if sec.get("summary"):
-                md.append(para_md(sec["summary"]) + "\n")
+                md.append(midia.md(sec["summary"], img_curso, pasta) + "\n")
             for mod in sec.get("modules", []):
                 if not mod.get("uservisible", True):
                     continue
@@ -83,13 +86,36 @@ def sync(cfg):
                     linha += f" - {mod['url']}"
                 md.append(linha)
                 if mod.get("description"):
-                    md.append("  " + para_md(mod["description"]).replace("\n", "\n  "))
+                    md.append("  " + midia.md(mod["description"], img_curso, pasta).replace("\n", "\n  "))
+                sub = nome_seguro(sec.get("name") or "Geral", 50)
+                if mod.get("modname") == "book":
+                    pasta_livro = pasta / "Materiais" / sub / nome_seguro(mod.get("name"), 80)
+                    try:
+                        if midia.salvar_livro(mod, pasta_livro):
+                            info["arquivos_novos"] += 1
+                            novidades.append(f"[{nome}] livro novo/atualizado: {mod.get('name')}")
+                        md.append(f"  - copia offline: Materiais/{sub}/{pasta_livro.name}/LIVRO.html")
+                    except Exception as e:  # noqa: BLE001
+                        log(f"  erro no livro {mod.get('name')}: {e}")
+                    continue
                 for arq in mod.get("contents", []) or []:
                     if arq.get("type") == "url":
                         md.append(f"  - link externo: {arq.get('fileurl')}")
-                    elif arq.get("type") == "file" and mod.get("modname") in ("resource", "folder"):
-                        sub = nome_seguro(sec.get("name") or "Geral", 50)
-                        dest = pasta / "Materiais" / sub / nome_seguro(arq.get("filename"), 120)
+                        salvo = midia.salvar_link(arq.get("fileurl"), mod.get("name") or "link",
+                                                  pasta / "Materiais" / sub / "Links")
+                        if salvo:
+                            md.append(f"  - copia salva: Materiais/{sub}/Links/{salvo.name}")
+                            info["arquivos_novos"] += 1
+                            novidades.append(f"[{nome}] link salvo: {mod.get('name')}")
+                    elif arq.get("type") == "file" and mod.get("modname") in ("resource", "folder", "imscp"):
+                        # mantem as subpastas (um HTML com imagens/CSS em pastas continua abrindo)
+                        subpastas = [nome_seguro(x, 60) for x in (arq.get("filepath") or "/").strip("/").split("/") if x]
+                        if mod.get("modname") == "imscp":
+                            subpastas = [nome_seguro(mod.get("name"), 60)] + subpastas
+                        dest = pasta / "Materiais" / sub
+                        for s in subpastas:
+                            dest = dest / s
+                        dest = dest / nome_seguro(arq.get("filename"), 120)
                         try:
                             if m.baixar(arq.get("fileurl"), dest, arq.get("filesize")):
                                 info["arquivos_novos"] += 1
@@ -108,6 +134,7 @@ def sync(cfg):
             prazo = a.get("duedate")
             arq_md = pasta / "Atividades" / f"{data_iso(prazo)}_{nome_seguro(a.get('name'))}.md"
             anexos = []
+            img_ativ = arq_md.parent / (arq_md.stem + "_anexos")
             for f in a.get("introattachments", []) or []:
                 d = arq_md.parent / (arq_md.stem + "_anexos") / nome_seguro(f.get("filename"), 120)
                 try:
@@ -125,8 +152,9 @@ def sync(cfg):
                 f"- Situacao: **{situacao}**\n"
                 f"- Nota/feedback: {nota}\n"
                 f"- Link: {SITE}/mod/assign/view.php?id={a.get('cmid')}\n\n"
-                f"## Enunciado\n\n{para_md(a.get('intro')) or '(sem descricao)'}\n"
-                + (f"\n## Instrucoes da atividade\n\n{para_md(a.get('activity'))}\n" if a.get("activity") else "")
+                f"## Enunciado\n\n{midia.md(a.get('intro'), img_ativ, arq_md.parent) or '(sem descricao)'}\n"
+                + (f"\n## Instrucoes da atividade\n\n{midia.md(a.get('activity'), img_ativ, arq_md.parent)}\n"
+                   if a.get("activity") else "")
                 + ("\n## Anexos do professor\n\n" + "\n".join(anexos) + "\n" if anexos else "")
             )
             escrever_se_mudou(arq_md, texto)
@@ -146,7 +174,7 @@ def sync(cfg):
                 f"- Tempo limite: {int(q.get('timelimit') or 0) // 60} min\n"
                 f"- Tentativas permitidas: {q.get('attempts') or 'ilimitadas'}\n"
                 f"- Link: {SITE}/mod/quiz/view.php?id={q.get('coursemodule')}\n\n"
-                f"## Descricao\n\n{para_md(q.get('intro')) or '(sem descricao)'}\n"))
+                f"## Descricao\n\n{midia.md(q.get('intro'), pasta / 'Provas' / '_imagens', arq_md.parent) or '(sem descricao)'}\n"))
             chave = f"quiz:{q['id']}"
             if chave not in vistos:
                 novidades.append(f"[{nome}] questionario/prova: {q.get('name')} (fecha {data(q.get('timeclose'))})")
@@ -155,9 +183,11 @@ def sync(cfg):
                                           "fecha": q.get("timeclose"), "arquivo": str(arq_md)})
 
         # 4) paginas de conteudo (texto inteiro)
+        pag_dir = pasta / "Materiais" / "Paginas"
         for p in [p for p in pages.get("pages", []) if p.get("course") == cid]:
-            escrever_se_mudou(pasta / "Materiais" / "Paginas" / f"{nome_seguro(p.get('name'))}.md",
-                              f"# {p.get('name')}\n\n{para_md(p.get('intro'))}\n\n{para_md(p.get('content'))}\n")
+            corpo = midia.md(p.get("intro"), pag_dir / "_imagens", pag_dir) + "\n\n" + \
+                midia.md(p.get("content"), pag_dir / "_imagens", pag_dir)
+            escrever_se_mudou(pag_dir / f"{nome_seguro(p.get('name'))}.md", f"# {p.get('name')}\n\n{corpo.strip()}\n")
 
         # 5) avisos e foruns (ultimas discussoes)
         for fo in [f for f in foruns if f.get("course") == cid]:
@@ -168,7 +198,7 @@ def sync(cfg):
                 escrever_se_mudou(arq_md, (
                     f"# {d.get('name')}\n\n- Forum: {fo.get('name')}\n- Autor: {d.get('userfullname')}\n"
                     f"- Data: {data(d.get('created'))}\n- Link: {SITE}/mod/forum/discuss.php?d={d.get('discussion')}\n\n"
-                    f"{para_md(d.get('message'))}\n"))
+                    f"{midia.md(d.get('message'), pasta / 'Anuncios' / '_imagens', arq_md.parent)}\n"))
                 chave = f"post:{d.get('discussion')}"
                 if chave not in vistos:
                     novidades.append(f"[{nome}] aviso: {d.get('name')}")

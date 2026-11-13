@@ -59,7 +59,8 @@ def para_md(html_txt):
         h = html2text.HTML2Text()
         h.body_width = 0
         return h.handle(html_txt).strip()
-    t = re.sub(r"<br\s*/?>|</p>|</li>|</h\d>", "\n", html_txt, flags=re.I)
+    t = re.sub(r'<img\b[^>]*?\bsrc\s*=\s*["\']([^"\']+)["\'][^>]*>', r"![](\1)", html_txt, flags=re.I)
+    t = re.sub(r"<br\s*/?>|</p>|</li>|</h\d>", "\n", t, flags=re.I)
     t = re.sub(r"<li[^>]*>", "- ", t, flags=re.I)
     t = re.sub(r"<[^>]+>", "", t)
     return html.unescape(t).strip()

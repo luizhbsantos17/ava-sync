@@ -42,6 +42,9 @@ class Config:
     ia: IAConfig = field(default_factory=IAConfig)
     envio_auto_rascunho: bool = False   # [envio] auto_rascunho
     servidor_porta: int = 8765          # [envio] porta do painel local
+    baixar_links: bool = True           # recursos URL: baixa arquivos e salva copia de paginas publicas
+    atualizar_links_dias: int = 7       # de quantos em quantos dias recopia uma pagina externa
+    links_ignorar: list = field(default_factory=list)    # trechos de dominio que ficam so como link
 
     # pastas derivadas
     @property

@@ -29,7 +29,7 @@ conteúdo que aparece no painel. Não é preciso mexer em código.
 | `01_DISCIPLINAS/<materia>/Atividades/<mesmo nome>_anexos/` | anexos do professor |
 | `01_DISCIPLINAS/<materia>/Provas/*.md` | questionários/provas online |
 | `01_DISCIPLINAS/<materia>/Anuncios/*.md` | avisos e fóruns |
-| `01_DISCIPLINAS/<materia>/Materiais/` | arquivos baixados (por seção) e páginas de texto |
+| `01_DISCIPLINAS/<materia>/Materiais/` | arquivos baixados (por seção), páginas de texto, livros (`LIVRO.md`) e cópias de links (`Links/*.md`) |
 | `01_DISCIPLINAS/<materia>/CONTEUDO_DA_DISCIPLINA.md` | todas as seções com os textos do professor |
 
 ## Como escrever um guia

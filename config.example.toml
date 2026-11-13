@@ -21,6 +21,13 @@ ignorar_cursos = ["Biblioteca Virtual"]
 # Se preenchido, SO estes cursos sao sincronizados (trecho do nome)
 somente_cursos = []
 
+# Recursos do tipo URL: baixa o arquivo (PDF, PPT...) ou salva uma copia da pagina com as imagens.
+# Videos, Google Drive, bibliotecas virtuais e paginas que pedem login ficam so como link.
+baixar_links = true
+atualizar_links_dias = 7
+# trechos de dominio que voce quer manter so como link, ex.: ["meusite.com"]
+links_ignorar = []
+
 # Opcional: nome da entrada no cofre de credenciais (padrao: "ava-sync:<site>")
 # keyring_servico = ""
 

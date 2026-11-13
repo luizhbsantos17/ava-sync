@@ -89,6 +89,14 @@ class Moodle:
             log(f"  aviso: {funcao} falhou ({e})")
             return padrao
 
+    def ler(self, url):
+        """Baixa um arquivo pequeno do Moodle (ex.: capitulo de livro) e devolve o texto."""
+        sep = "&" if "?" in url else "?"
+        r = self.s.get(f"{url}{sep}token={self.token}", timeout=60)
+        r.raise_for_status()
+        r.encoding = r.encoding or "utf-8"
+        return r.text
+
     def baixar(self, url, destino: Path, tamanho=None):
         if not url:
             return False

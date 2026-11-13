@@ -141,6 +141,21 @@ Agentes como Claude (Cowork/Code), Codex, Gemini CLI ou Copilot podem ler as pas
 guias diretamente, seguindo o [AGENTS.md](AGENTS.md). Guias escritos por agentes nunca são
 sobrescritos pelo modo API.
 
+## O que é baixado
+
+| No Moodle | No seu computador |
+|---|---|
+| Arquivo, Pasta, Pacote de conteúdo | o arquivo, mantendo as subpastas (um HTML com imagens continua abrindo) |
+| Página, Rótulo, enunciados, avisos | o texto em `.md`, com as **imagens baixadas** em `_imagens/` |
+| Livro | `LIVRO.html` (com sumário e imagens) e `LIVRO.md` |
+| URL para um arquivo (PDF, PPT...) | o arquivo, em `Materiais/<seção>/Links/` |
+| URL para uma página pública | uma cópia `.html` com as imagens e um `.md` com o texto, refeita a cada 7 dias |
+| YouTube, Google Drive, reuniões, formulários, bibliotecas virtuais, páginas com login | só o link, no `CONTEUDO_DA_DISCIPLINA.md` |
+| Questionários, H5P, SCORM, ferramentas externas (LTI) | só o link |
+
+O token do Moodle só é usado em endereços do próprio Moodle. Sites externos são acessados sem token e sem login.
+Livros de bibliotecas virtuais (Pearson, Minha Biblioteca etc.) abrem num leitor protegido e não são baixados.
+
 ## Estrutura gerada
 
 ```
