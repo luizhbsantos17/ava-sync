@@ -1,0 +1,7 @@
+requests>=2.31
+keyring>=24
+html2text>=2024.2.26
+tomli>=2; python_version < "3.11"
+# opcionais (para a IA ler anexos PDF/DOCX):
+# pypdf>=4
+# python-docx>=1.1

@@ -1,0 +1,12 @@
+# configuracao pessoal e dados do aluno NUNCA vao para o Git
+config.toml
+dados/
+saida/
+*.log
+.avasync/
+PAINEL.html
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env

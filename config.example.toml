@@ -1,0 +1,47 @@
+# Copie este arquivo para config.toml e ajuste. O config.toml NAO vai para o Git.
+
+# Endereco do seu Moodle (sem barra no final)
+site = "https://ava.suainstituicao.edu.br"
+
+# Onde salvar tudo (materias, prazos, painel). Ex. Windows: "D:/Faculdade"  Linux/macOS: "~/Faculdade"
+pasta_saida = "~/Faculdade"
+
+# Servico de API usado no login. O do app oficial funciona na maioria dos Moodles.
+servico = "moodle_mobile_app"
+
+# Fuso horario em horas (Brasilia = -3)
+fuso_horas = -3
+
+# Nao baixa arquivos maiores que isso (o link fica registrado)
+max_download_mb = 200
+
+# Cursos que aparecem como "em andamento" mas voce nao quer (trecho do nome)
+ignorar_cursos = ["Biblioteca Virtual"]
+
+# Se preenchido, SO estes cursos sao sincronizados (trecho do nome)
+somente_cursos = []
+
+# Opcional: nome da entrada no cofre de credenciais (padrao: "ava-sync:<site>")
+# keyring_servico = ""
+
+[ia]
+# nenhum | openai | anthropic | gemini   (veja o README para exemplos)
+provedor = "nenhum"
+modelo = ""
+# so para "openai": OpenAI, OpenRouter, Groq, Ollama (http://localhost:11434/v1), LM Studio...
+base_url = ""
+# NOME da variavel de ambiente que tem a chave (a chave nao fica neste arquivo)
+api_key_env = ""
+max_tokens = 2500
+temperatura = 0.3
+prompt = "prompts/guia_atividade.md"
+max_chars_anexos = 20000
+guias_por_execucao = 10
+
+[envio]
+# Porta do painel local (python -m avasync servidor)
+porta = 8765
+# Se true, pedidos deixados por agentes de IA em 04_ENVIOS/fila sao salvos sozinhos como
+# RASCUNHO no Moodle (so em tarefas que usam rascunho). Finalizar e aceitar a declaracao
+# de autoria continua sempre com a pessoa, no painel ou no terminal.
+auto_rascunho = false
