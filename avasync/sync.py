@@ -1,6 +1,7 @@
 """Sincronizacao: le o Moodle e escreve as pastas (somente leitura no Moodle)."""
 import datetime as dt
 import json
+import re
 import sys
 import time
 
@@ -9,9 +10,38 @@ from .moodle import Moodle, pegar_token
 from .util import data, data_iso, escrever_se_mudou, log, nome_seguro, para_md, tz
 
 
-def filtrar_cursos(cfg, cursos, agora):
-    """Tira cursos que nao interessam: os da lista ignorar_cursos, os ja encerrados
-    (enddate no passado) e, se somente_cursos estiver preenchido, tudo que nao estiver nela."""
+def semestre_do_nome(nome):
+    """'2026/2', '2026-2', '2026.2', '2026_02' -> 20262 (None se nao tiver)."""
+    m = re.search(r"(20\d\d)\s*[/\-._]\s*0?([12])(?!\d)", nome or "")
+    return int(m.group(1)) * 10 + int(m.group(2)) if m else None
+
+
+def cursos_atuais(cursos, atividade, agora):
+    """Adivinha quais cursos sao do semestre atual: pelo semestre no nome, pela data de
+    fim, pela data de inicio e, por ultimo, por ter algo acontecendo nos ultimos 30 dias."""
+    dia = 86400
+    sems = {c["id"]: semestre_do_nome(f"{c.get('fullname', '')} {c.get('shortname', '')}") for c in cursos}
+    sem_max = max([s for s in sems.values() if s], default=None)
+    inicio_max = max([c.get("startdate") or 0 for c in cursos], default=0)
+    out = {}
+    for c in cursos:
+        sem, ini, fim = sems[c["id"]], c.get("startdate") or 0, c.get("enddate") or 0
+        if sem and sem_max:
+            out[c["id"]] = sem == sem_max
+        elif fim and fim < agora - 7 * dia:
+            out[c["id"]] = False
+        elif ini and inicio_max:
+            out[c["id"]] = ini >= inicio_max - 120 * dia
+        else:
+            out[c["id"]] = atividade.get(c["id"], agora) >= agora - 30 * dia
+    return out
+
+
+def filtrar_cursos(cfg, cursos, agora, atividade=None):
+    """Tira cursos que nao interessam: os da lista ignorar_cursos, os de semestres
+    anteriores (se somente_semestre_atual) e, se somente_cursos estiver preenchido,
+    tudo que nao estiver nela."""
+    atuais = cursos_atuais(cursos, atividade or {}, agora) if cfg.somente_semestre_atual else {}
     saida = []
     for c in cursos:
         nome = (c.get("fullname") or "").lower()
@@ -19,10 +49,27 @@ def filtrar_cursos(cfg, cursos, agora):
             continue
         if any(s.lower() in nome for s in cfg.ignorar_cursos):
             continue
-        if c.get("enddate") and c["enddate"] < agora:
+        if cfg.somente_semestre_atual and not atuais.get(c["id"], True):
             continue
         saida.append(c)
     return saida
+
+
+def listar_cursos(m, userid):
+    """TODAS as materias em que a pessoa esta inscrita. A lista "em andamento" do Moodle
+    deixa de fora curso com data de inicio no futuro, data de fim errada ou que a pessoa
+    escondeu do painel."""
+    cursos = m.tentar("core_enrol_get_users_courses", [], userid=userid) or []
+    if not cursos:
+        vistos = set()
+        for cl in ("inprogress", "future", "hidden"):
+            r = m.tentar("core_course_get_enrolled_courses_by_timeline_classification", {"courses": []},
+                         classification=cl) or {"courses": []}
+            for c in r.get("courses", []):
+                if c["id"] not in vistos:
+                    vistos.add(c["id"])
+                    cursos.append(c)
+    return cursos
 
 
 def sync(cfg):
@@ -46,9 +93,9 @@ def sync(cfg):
     userid = site["userid"]
     log(f"Conectado como {site.get('fullname')} - {len(site.get('functions', []))} funcoes liberadas")
 
-    cursos = m.call("core_course_get_enrolled_courses_by_timeline_classification",
-                    classification="inprogress").get("courses", [])
-    cursos = filtrar_cursos(cfg, cursos, agora)
+    cursos = listar_cursos(m, userid)
+    atividade = {c["id"]: max(c.get("lastaccess") or 0, c.get("startdate") or 0) for c in cursos}
+    cursos = filtrar_cursos(cfg, cursos, agora, atividade)
     ids = [c["id"] for c in cursos]
     log(f"{len(cursos)} disciplinas em andamento")
 

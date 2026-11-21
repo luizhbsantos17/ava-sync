@@ -39,6 +39,7 @@ class Config:
     max_download_mb: int = 200
     ignorar_cursos: list = field(default_factory=list)   # trechos de nome (sem diferenciar maiusculas)
     somente_cursos: list = field(default_factory=list)   # se preenchido, so estes
+    somente_semestre_atual: bool = True  # esconde materias de semestres anteriores
     ia: IAConfig = field(default_factory=IAConfig)
     envio_auto_rascunho: bool = False   # [envio] auto_rascunho
     servidor_porta: int = 8765          # [envio] porta do painel local

@@ -21,6 +21,9 @@ ignorar_cursos = ["Biblioteca Virtual"]
 # Se preenchido, SO estes cursos sao sincronizados (trecho do nome)
 somente_cursos = []
 
+# Sincroniza so as materias do semestre atual (detectado pelo nome, ex. "2026/2", e pelas datas)
+somente_semestre_atual = true
+
 # Recursos do tipo URL: baixa o arquivo (PDF, PPT...) ou salva uma copia da pagina com as imagens.
 # Videos, Google Drive, bibliotecas virtuais e paginas que pedem login ficam so como link.
 baixar_links = true
